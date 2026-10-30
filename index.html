@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class Attendance</title>
+<style>
+body{font-family:sans-serif;background:#f2f4f8;margin:0;padding:10px}
+.card{background:#fff;padding:12px;border-radius:12px;margin-bottom:12px;box-shadow:0 2px 8px #0001}
+input,button{padding:10px;border-radius:8px;border:1px solid #ddd;margin:4px 0;width:100%;box-sizing:border-box}
+button{background:#4f46e5;color:#fff;border:0;font-weight:bold}
+.small{padding:6px 10px;width:auto;margin:2px}
+.present{background:#dcfce7;color:#065f46}
+.absent{background:#fee2e2;color:#991b1b}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{border-bottom:1px solid #eee;padding:8px;text-align:left}
+</style>
+</head>
+<body>
+<div class="card">
+<h3>📚 Class Attendance</h3>
+<input id="className" placeholder="Class Name e.g. 10A">
+<button onclick="addClass()">+ Add / Select Class</button>
+<input id="classSearch" placeholder="Search Class" oninput="render()">
+<div id="classList"></div>
+</div>
+<div class="card">
+<b id="curClass">No Class Selected</b><br><br>
+<input id="sName" placeholder="Student Name">
+<input id="sRoll" placeholder="Roll No">
+<button onclick="addStu()">Add Student</button>
+<br><br>
+<input id="sSearch" placeholder="Search Student" oninput="showStu()">
+<table><thead><tr><th>Roll</th><th>Name</th><th>P/T</th><th>%</th><th>Action</th></tr></thead><tbody id="tbody"></tbody></table>
+<p>Classes Held: <b id="held">0</b> | Avg: <b id="avg">0%</b></p>
+<button onclick="newDay()">+ Add Today's Attendance</button>
+<button onclick="exportCSV()" style="background:#10b981">Export CSV</button>
+</div>
+<script>
+let db=JSON.parse(localStorage.getItem('att')||'{}');let cur=localStorage.getItem('cur')||'';
+function save(){localStorage.setItem('att',JSON.stringify(db));localStorage.setItem('cur',cur)}
+function addClass(){let n=document.getElementById('className').value.trim().toUpperCase();if(!n)return alert('Enter class');if(!db[n])db[n]={stu:[],att:{}};cur=n;save();render();showStu()}
+function render(){let box=document.getElementById('classList');box.innerHTML='';let f=document.getElementById('classSearch').value.toUpperCase();Object.keys(db).filter(c=>c.includes(f)).forEach(c=>{let d=document.createElement('div');d.style="padding:8px;border:1px solid #eee;margin:4px 0;border-radius:8px;background:"+(c==cur?'#eef2ff':'#fff');d.innerHTML=c+" ("+db[c].stu.length+" stu, "+Object.keys(db[c].att).length+" classes) <button class='small' onclick=\"cur='"+c+"';save();render();showStu()\">Select</button>";box.appendChild(d)});if(cur)document.getElementById('curClass').innerText="Class: "+cur}
+function addStu(){if(!cur)return alert('Select class first');let name=document.getElementById('sName').value.trim();let roll=document.getElementById('sRoll').value.trim();if(!name)return alert('Enter name');db[cur].stu.push({id:Date.now().toString(),name,roll});document.getElementById('sName').value='';document.getElementById('sRoll').value='';save();showStu();render()}
+function showStu(){if(!cur)return;let cls=db[cur];let tb=document.getElementById('tbody');tb.innerHTML='';let f=document.getElementById('sSearch').value.toLowerCase();let total=Object.keys(cls.att).length;let allPer=0;cls.stu.filter(s=>s.name.toLowerCase().includes(f)||s.roll.includes(f)).forEach(s=>{let p=0;for(let d in cls.att)if(cls.att[d][s.id]=='P')p++;let per=total?Math.round(p/total*100):0;allPer+=per;let tr=document.createElement('tr');tr.innerHTML=`<td>${s.roll}</td><td>${s.name}</td><td>${p}/${total}</td><td>${per}%</td><td><button class='small present' onclick="mark('${s.id}','P')">P</button> <button class='small absent' onclick="mark('${s.id}','A')">A</button></td>`;tb.appendChild(tr)});document.getElementById('held').innerText=total;document.getElementById('avg').innerText=(cls.stu.length?Math.round(allPer/cls.stu.length):0)+'%' }
+function mark(id,st){let date=new Date().toISOString().slice(0,10);if(!db[cur].att[date])db[cur].att[date]={};db[cur].att[date][id]=st;save();showStu()}
+function newDay(){if(!cur)return alert('Select class');let date=prompt('Date YYYY-MM-DD',new Date().toISOString().slice(0,10));if(!date)return;if(!db[cur].att[date])db[cur].att[date]={};db[cur].stu.forEach(s=>{if(!(s.id in db[cur].att[date])){let ok=confirm(s.name+" Present? OK=P, Cancel=A");db[cur].att[date][s.id]=ok?'P':'A'}});save();showStu();render()}
+function exportCSV(){if(!cur)return;let cls=db[cur];let rows=[['Roll','Name','Present','Total','%']];let total=Object.keys(cls.att).length;cls.stu.forEach(s=>{let p=0;for(let d in cls.att)if(cls.att[d][s.id]=='P')p++;rows.push([s.roll,s.name,p,total,total?Math.round(p/total*100)+'%':'0%'])});let csv=rows.map(r=>r.join(',')).join('\n');let blob=new Blob([csv],{type:'text/csv'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=cur+'_attendance.csv';a.click()}
+if(cur)render();showStu();
+</script>
+</body>
+</html>
